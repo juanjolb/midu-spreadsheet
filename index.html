@@ -16,6 +16,30 @@
         font-family: Arial, sans-serif;
         background-color: #888;
       }
+      h1 {
+        text-align: center;
+        margin: 20px 0;
+      }
+      nav {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #4b4242;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      section {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 20px;
+      }
       table {
         border-collapse: collapse;
         background-color: #fff;
@@ -31,8 +55,8 @@
         font-weight: normal;
         font-size: 12px;
         text-align: center;
-        width: 64px;
-        height: 20px;
+        width: 100px;
+        height: 34px;
         vertical-align: middle;
         position: relative;
       }
@@ -59,8 +83,8 @@
       const $ = (element) => document.querySelector(element);
       const $$ = (element) => document.querySelectorAll(element);
 
-      const ROWS = 10;
-      const COLS = 10;
+      let ROWS = 10;
+      let COLS = 10;
       const CHARCODE_START = 65;
 
       const times = (length) => Array.from({ length }, (_, i) => i);
@@ -154,20 +178,50 @@
         return computed;
       };
 
+      /* Update cell value, computed value and re-render the state */
       const updateCell = (cell, value) => {
         const newState = structuredClone(STATE);
         const cellIndex = getIndex(cell);
+
         newState[cellIndex].set(cell, {
           value,
           computedValue: computeCell(value),
         });
+
         STATE = newState;
+
+        const relatedCells = findRelatedCells(cell);
+        if (relatedCells.length) {
+          relatedCells.map((cell) => {
+            const index = getIndex(cell);
+            const { value } = newState[index].get(cell);
+            newState[index].set(cell, {
+              value,
+              computedValue: computeCell(value),
+            });
+          });
+
+          STATE = newState;
+        }
+
         renderState();
+      };
+
+      /* Find cells that compute value from the given cell */
+      const findRelatedCells = (cell) => {
+        const relatedCells = [];
+        STATE.map((row) => {
+          row.forEach((map, key) => {
+            if (map.value.includes(cell.toString())) relatedCells.push(key);
+          });
+        });
+        return relatedCells;
       };
 
       const $head = $("thead");
       const $body = $("tbody");
 
+      /* Table body event listeners */
       $body.addEventListener("click", (event) => {
         const td = event.target.closest("td");
         if (!td) return;
@@ -185,14 +239,36 @@
         });
       });
 
+      /* Add row and column event listeners */
+      $("#add-row").addEventListener("click", (event) => {
+        ROWS += 1;
+        STATE = structuredClone(initState());
+        renderState();
+      });
+
+      $("#add-col").addEventListener("click", (event) => {
+        COLS += 1;
+        STATE = structuredClone(initState());
+        renderState();
+      });
+
       renderState();
     </script>
   </head>
 
   <body>
-    <table>
-      <thead></thead>
-      <tbody></tbody>
-    </table>
+    <header>
+      <h1>Spreadsheet</h1>
+      <nav>
+        <button id="add-row">Add Row</button>
+        <button id="add-col">Add Column</button>
+      </nav>
+    </header>
+    <section>
+      <table>
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </section>
   </body>
 </html>

@@ -9,6 +9,7 @@ Simple spreadsheet build on plain javascript, html and css, list of funcionaliti
 
 > To do any calculation, precede the operation with '='
 
-* Use cells to do calculation with arithmetic operators
 * Use cells to do calculation with native `Math` object
+* Use cells to do calculation with arithmetic operators
 * Calculate dynamic with cells values: *Example: =A1+B1+C1*  
+* Add Rows / Cols
