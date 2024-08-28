@@ -14,16 +14,17 @@
       }
       body {
         font-family: Arial, sans-serif;
+        background-color: #888;
       }
       table {
         border-collapse: collapse;
+        background-color: #fff;
       }
 
       thead,
       tr td:first-child {
         background: #eee;
       }
-
       th,
       td {
         border: 1px solid #ccc;
@@ -64,25 +65,43 @@
 
       const times = (length) => Array.from({ length }, (_, i) => i);
 
+      const getColumn = (i) => String.fromCharCode(CHARCODE_START + Number(i));
+
+      const getIndex = (cell) => cell.at(1) - 1;
+
+      const getCellKey = ({ y, x }) => `${getColumn(x)}${y + 1}`;
+
       const initState = () => {
-        const array = times(ROWS).map((_, i) =>
-          times(COLS).map((_, i) => {
-            return {
-              value: "",
+        const array = times(ROWS).map((_, y) => {
+          const map = new Map();
+          times(COLS).map((_, x) =>
+            map.set(`${getCellKey({ y, x })}`, {
               computedValue: "",
-            };
-          })
-        );
+              value: "",
+            })
+          );
+          return map;
+        });
         return array;
       };
       let STATE = initState();
+
+      const generateConstants = (cells) => {
+        let constants = "";
+        cells.map((cell) => {
+          const index = getIndex(cell);
+          const computed = STATE[index].get(cell).computedValue || 0;
+          constants += `const ${cell} = ${computed};`;
+        });
+        return constants;
+      };
 
       const renderState = () => {
         const headerHTML = `
         <tr>
             <th></th>
            ${times(COLS)
-             .map((x) => `<th>${String.fromCharCode(CHARCODE_START + x)}</th>`)
+             .map((x) => `<th>${getColumn(x)}</th>`)
              .join("")}
         </tr>
       `;
@@ -95,12 +114,15 @@
           <tr>
             <td>${y + 1}</td>
             ${times(COLS)
-              .map(
-                (x) => `<td data-x="${x}" data-y="${y}">
-                              <span>${STATE[x][y].computedValue}</span>
-                              <input type="text" value="${STATE[x][y].value}"></input>
-                          </td>`
-              )
+              .map((x) => {
+                const cell = getCellKey({ y, x });
+                const { value, computedValue } = STATE[y].get(cell);
+
+                return `<td data-cell="${cell}">
+                              <span>${computedValue}</span>
+                              <input value="${value}" />
+                          </td>`;
+              })
               .join("")}
           </tr>
         `
@@ -111,24 +133,34 @@
       };
 
       const computeCell = (value) => {
-        console.log(typeof value);
         if (!value.startsWith("=")) return value;
 
+        const formula = value.slice(1);
+        const formulaRegex = /([A-Z]\d+)/g;
+        const cells = formula.match(formulaRegex);
+        if (!cells) return eval(formula);
+
+        const constants = generateConstants(cells);
         let computed;
+
         try {
-          computed = eval(value);
+          computed = eval(`(() => {
+                            ${constants}
+                            return ${formula};
+                          })()`);
         } catch (e) {
           computed = `ERROR: ${e}`;
         }
         return computed;
       };
 
-      const updateCell = ({ x, y }, value) => {
+      const updateCell = (cell, value) => {
         const newState = structuredClone(STATE);
-        newState[x][y] = {
-          value: value,
+        const cellIndex = getIndex(cell);
+        newState[cellIndex].set(cell, {
+          value,
           computedValue: computeCell(value),
-        };
+        });
         STATE = newState;
         renderState();
       };
@@ -140,14 +172,16 @@
         const td = event.target.closest("td");
         if (!td) return;
 
-        const { x, y } = td.dataset;
+        const { cell } = td.dataset;
         const input = td.querySelector("input");
         input.focus();
 
-        input.addEventListener("blur", () => updateCell({ x, y }, input.value));
+        input.addEventListener("blur", () => updateCell(cell, input.value), {
+          once: true,
+        });
 
         input.addEventListener("keydown", (event) => {
-          if (event.key == "Enter") updateCell({ x, y }, input.value);
+          if (event.key == "Enter") updateCell(cell, input.value);
         });
       });
 
